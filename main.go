@@ -38,13 +38,13 @@ func init() {
 
 func main() {
 	flag.Parse()
-	//if flag.NArg() == 0 {
-	//	fmt.Fprintf(os.Stderr, "no raft storage directory specified\n")
-	//	os.Exit(1)
-	//}
+	if flag.NArg() == 0 {
+		fmt.Fprintf(os.Stderr, "no raft storage directory specified\n")
+		os.Exit(1)
+	}
 
 	// Ensure Raft storage exists.
-	raftDir := "./data"
+	raftDir := flag.Arg(0)
 	if raftDir == "" {
 		fmt.Fprintf(os.Stderr, "no raft storage directory specified\n")
 		os.Exit(1)
