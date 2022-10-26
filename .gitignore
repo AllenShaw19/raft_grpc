@@ -1,1 +1,4 @@
 /data/
+/app
+/data01/raft.db
+/.idea/
