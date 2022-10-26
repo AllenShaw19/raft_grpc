@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb/v2"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -18,6 +19,11 @@ var (
 	// ErrOpenTimeout is returned when the Store does not apply its initial
 	// logs within the specified time.
 	ErrOpenTimeout = errors.New("timeout waiting for initial logs application")
+)
+
+var (
+	transport raft.Transport
+	tl        sync.Mutex
 )
 
 const (
@@ -100,6 +106,8 @@ func NewStores(n int, enableSingle bool, localID, raftDir, raftBind string) *Sto
 		ss[i] = s
 	}
 
+	fmt.Println("NewStores")
+
 	stores.ss = ss
 	return stores
 }
@@ -109,35 +117,28 @@ func newStore(id, raftDir, raftBind string) *Store {
 		id:       id,
 		m:        make(map[string]string),
 		logger:   log.New(os.Stderr, fmt.Sprintf("[store%v]", id), log.LstdFlags),
-		RaftDir:  raftDir,
+		RaftDir:  fmt.Sprintf("%s-%v", raftDir, id),
 		RaftBind: raftBind,
 	}
 }
 
 func (s *Store) Open(enableSingle bool, localID string) error {
-	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(localID)
 
 	newNode := !pathExists(filepath.Join(s.RaftDir, "raft.db"))
 
-	// Setup Raft communication.
 	addr, err := net.ResolveTCPAddr("tcp", s.RaftBind)
 	if err != nil {
 		return err
 	}
-	transport, err := raft.NewTCPTransport(s.RaftBind, addr, 3, 10*time.Second, os.Stderr)
-	if err != nil {
-		return err
-	}
+	t := getTransport(s.RaftBind, addr, 3, 10*time.Second, os.Stderr)
 
-	// Create the snapshot store. This allows the Raft to truncate the log.
 	snapshots, err := raft.NewFileSnapshotStore(s.RaftDir, retainSnapshotCount, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("file snapshot store: %s", err)
 	}
 
-	// Create the log store and stable store.
 	var logStore raft.LogStore
 	var stableStore raft.StableStore
 
@@ -149,7 +150,7 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 	stableStore = boltDB
 
 	// Instantiate the Raft systems.
-	ra, err := raft.NewRaft(config, (*fsm)(s), logStore, stableStore, snapshots, transport)
+	ra, err := raft.NewRaft(config, (*fsm)(s), logStore, stableStore, snapshots, t)
 	if err != nil {
 		return fmt.Errorf("new raft: %s", err)
 	}
@@ -161,7 +162,7 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 			Servers: []raft.Server{
 				{
 					ID:      config.LocalID,
-					Address: transport.LocalAddr(),
+					Address: t.LocalAddr(),
 				},
 			},
 		}
@@ -171,6 +172,20 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 	}
 
 	return nil
+}
+
+func getTransport(bind string, addr *net.TCPAddr, maxPool int, timeout time.Duration, output io.Writer) raft.Transport {
+	if transport == nil {
+		tl.Lock()
+		defer tl.Unlock()
+		var err error
+		transport, err = raft.NewTCPTransport(bind, addr, maxPool, timeout, output)
+		if err != nil {
+			log.Fatalf("new raft transport fail %v", err)
+		}
+		return transport
+	}
+	return transport
 }
 
 func (s *Store) LeaderAddr() string {

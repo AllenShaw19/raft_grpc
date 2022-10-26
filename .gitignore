@@ -1,4 +1,9 @@
 /data/
 /app
-/data01/raft.db
+/data01/
+/data02/
+/data03/
 /.idea/
+/data-0/
+/data-1/
+/data-2/

@@ -44,7 +44,7 @@ func New(addr string, store Store) *Service {
 	return &Service{
 		addr:   addr,
 		store:  store,
-		logger: log.New(os.Stderr, "[httpd] ", log.LstdFlags),
+		logger: log.New(os.Stdout, "[httpd] ", log.LstdFlags),
 	}
 }
 
@@ -76,6 +76,7 @@ func (s *Service) Close() {
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("path: %v\n", r.URL.Path)
 	if strings.HasPrefix(r.URL.Path, "/key") {
 		s.handleKeyRequest(w, r)
 	} else if r.URL.Path == "/join" {
@@ -168,7 +169,7 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	getID := func() (int, error) {
 		parts := strings.Split(r.URL.Path, "/")
-		if len(parts) != 4 {
+		if len(parts) < 3 {
 			w.WriteHeader(http.StatusBadRequest)
 			return 0, fmt.Errorf("invalid paths %v", parts)
 		}
@@ -176,6 +177,7 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		return strconv.Atoi(id)
 	}
 
+	fmt.Printf("url %v, method %v\n", r.URL.Path, r.Method)
 	switch r.Method {
 	case "GET":
 		k := getKey()
