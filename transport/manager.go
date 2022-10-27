@@ -3,6 +3,7 @@ package transport
 import (
 	pb "github.com/AllenShaw19/raft_grpc/transport/proto"
 	"github.com/hashicorp/raft"
+	"google.golang.org/grpc"
 	"sync"
 )
 

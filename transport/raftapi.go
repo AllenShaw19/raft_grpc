@@ -5,6 +5,7 @@ import (
 	"github.com/AllenShaw19/raft_grpc/transport/codec"
 	pb "github.com/AllenShaw19/raft_grpc/transport/proto"
 	"github.com/hashicorp/raft"
+	"google.golang.org/grpc"
 	"io"
 	"sync"
 	"time"

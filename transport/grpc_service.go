@@ -31,6 +31,7 @@ func (s *snapshotStream) Read(b []byte) (int, error) {
 }
 
 type rpcService struct {
+	pb.UnimplementedRaftServer
 	manager *Manager
 }
 
